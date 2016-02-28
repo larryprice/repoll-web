@@ -6,7 +6,6 @@ var Welcome = React.createClass({
   getInitialState: function () {
     return {};
   },
-
   componentWillMount: function () {
     var pollsRequest = new XMLHttpRequest();
     pollsRequest.open('GET', api.base + '/polls');
@@ -28,21 +27,28 @@ var Welcome = React.createClass({
         console.log(pollsRequest.responseText);
     };
 
-    var sessionRequest = new XMLHttpRequest();
-    sessionRequest.open('PUT', api.base + '/sessions');
+		if (localStorage.getItem('sessionId')) {
+			pollsRequest.send();
+		} else {
+			var sessionRequest = new XMLHttpRequest();
+			sessionRequest.open('PUT', api.base + '/sessions');
 
-    sessionRequest.onload = function () {
-      if (sessionRequest.status >= 200 && sessionRequest.status < 400) {
-        var session = JSON.parse(sessionRequest.responseText);
-        localStorage.setItem('sessionId', session._id);
+			sessionRequest.onload = function () {
+				if (sessionRequest.status >= 200 && sessionRequest.status < 400) {
+					var session = JSON.parse(sessionRequest.responseText);
+					localStorage.setItem('sessionId', session._id);
 
-        pollsRequest.send();
-      } else {
-        console.log(sessionRequest.responseText);
-      }
-    };
-
-    sessionRequest.send();
+					pollsRequest.setRequestHeader(
+			      'Authorization',
+			      'Basic ' + btoa(session._id + ':')
+			    );
+					pollsRequest.send();
+				} else {
+					console.log(sessionRequest.responseText);
+				}
+			};
+			sessionRequest.send();
+		}
   },
 
   handleSubmit: function (poll) {

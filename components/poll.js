@@ -9,6 +9,7 @@ var PollingBooth = React.createClass({
 			pollId: document.getElementById('content').getAttribute('data-poll-id')
 		}
 	},
+
 	componentDidMount: function() {
 		var req = new XMLHttpRequest();
 		req.open('GET', api.base + '/polls/' + this.state.pollId);
@@ -28,6 +29,7 @@ var PollingBooth = React.createClass({
 
 		req.send();
 	},
+
 	render: function() {
 		if (this.state.poll) {
 			if (Date.parse(this.state.poll.startDate) > new Date()) {
@@ -180,7 +182,7 @@ var OpenPoll = React.createClass({
 					<Ballot pollId={this.props.pollId} />
 				</div>
 				<div className="col-sm-6">
-					<Candidates options={this.props.candidates} />
+					<Candidates initialCandidates={this.props.candidates} />
 				</div>
 			</div>
 		)
@@ -193,6 +195,7 @@ var Ballot = React.createClass({
 			ballot: null
 		};
 	},
+
 	componentDidMount: function() {
 		var existing = localStorage.getItem('ballots');
 
@@ -246,21 +249,49 @@ var Ballot = React.createClass({
 
 		req.send();
 	},
+
+
+	handleDragOver: (e) => {
+		if (e.dataTransfer.types.some((t) => t === 'from-candidates')){
+			 e.preventDefault();
+		}
+	},
+
+	handleDrop: function (e) {
+	  var selection = JSON.parse(e.dataTransfer.getData('from-candidates'));
+	  var currentBallot = this.state.ballot;
+	  
+	  currentBallot.candidates.push(selection);
+	  this.setState({ballot: currentBallot});
+
+	  e.preventDefault();
+	},
+
+	removeCandidate: function (candidateId) {
+		var ballot = this.state.ballot;
+		ballot.candidates = ballot.candidates.filter((c) => c._id !== candidateId);
+		this.setState({ballot: ballot});
+	},
+
 	render: function() {
 		var selections;
 		if (this.state.ballot) {
 			selections = this.state.ballot.candidates.map(function(o) {
 				return (
-					<li style={{paddingTop: ".5em", paddingBottom: ".5em", borderBottom: "solid 1px lightgrey", paddingLeft: ".5em"}} value={JSON.stringify(o)} key={o._id}><b>{o.name}</b></li>
+					<DraggableCandidate option={o} key={o._id} transferKey='from-ballot' onCandidateMove={this.removeCandidate}/>
 				);
-			});
+			}.bind(this));
 		}
+
 		return (
 			<div>
 				<h3 className="text-center">
 					Ballot
 				</h3>
-				<ol style={{listStyleType: "none", height: "25em", border: "solid 1px grey", paddingLeft: "0"}}>
+				<ol 
+					onDragOver={this.handleDragOver}
+					onDrop={this.handleDrop}
+					style={{listStyleType: "none", height: "25em", border: "solid 1px grey", paddingLeft: "0"}}>
 					{selections}
 				</ol>
 			</div>
@@ -269,21 +300,76 @@ var Ballot = React.createClass({
 });
 
 var Candidates = React.createClass({
+	getInitialState: function () {
+		return {candidates: this.props.initialCandidates};
+	},
+
+	handleDragOver: (e) => {
+		if (e.dataTransfer.types.some((t) => t === 'from-ballot')){
+			 e.preventDefault();
+		}
+	},
+
+	handleDrop: function (e) {
+	  var selection = JSON.parse(e.dataTransfer.getData('from-ballot'));
+	 
+	  this.setState({candidates: this.state.candidates.concat(selection)});
+
+	  e.preventDefault();
+	},
+
 	render: function() {
-		var options = this.props.options.map(function(o) {
+		var options = this.state.candidates.map(function(o) {
 			return (
-				<li style={{paddingTop: ".5em", paddingBottom: ".5em", borderBottom: "solid 1px lightgrey", paddingLeft: ".5em"}} value={JSON.stringify(o)} key={o._id}>{o.name}</li>
+				<DraggableCandidate option={o} key={o._id} transferKey='from-candidates' onCandidateMove={this.removeCandidate}/>
 			);
-		});
+		}.bind(this));
+
 		return (
 			<div>
 				<h3 className="text-center">
 					Candidates
 				</h3>
-				<ul style={{listStyleType: "none", height: "25em", border: "solid 1px grey", paddingLeft: "0"}}>
+				<ul 
+					onDragOver={this.handleDragOver}
+					onDrop={this.handleDrop}
+					style={{listStyleType: "none", height: "25em", border: "solid 1px grey", paddingLeft: "0"}}>
 					{options}
 				</ul>
 			</div>
+		);
+	},
+
+	removeCandidate: function (candidateId) {
+		var filteredCandidates = this.state.candidates.filter((c) => c._id !== candidateId);
+		this.setState({candidates: filteredCandidates});
+	}
+});
+
+var DraggableCandidate = React.createClass({
+	handleDragStart: function (e) {
+		e.dataTransfer.setData(this.props.transferKey, e.target.getAttribute('data-option'));
+		e.dataTransfer.effectAllowed = 'move';
+	},
+
+	handleDragEnd: function (e) {
+		if (e.dataTransfer.dropEffect === 'none') {
+			return;
+		}
+
+		this.props.onCandidateMove(this.props.option._id);
+	},
+
+	render: function () {
+		return (
+			<li
+				draggable="true"
+				onDragStart={this.handleDragStart}
+				onDragEnd={this.handleDragEnd}
+				style={{paddingTop: ".5em", paddingBottom: ".5em", borderBottom: "solid 1px lightgrey", paddingLeft: ".5em"}} 
+				data-option={JSON.stringify(this.props.option)}>
+					{this.props.option.name}
+			</li>
 		);
 	}
 });
