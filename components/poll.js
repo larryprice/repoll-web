@@ -134,17 +134,19 @@ var PollResults = React.createClass({
 
 var ResultStep = React.createClass({
 	render: function() {
-		var results = this.props.results.map(function(r, i) {
+		var results = this.props.results.map(function(r, index) {
 			var count = "";
 			for (var i = 0; i < r.count; ++i) {
 				count += "|";
 			}
 			return (
-				<div key={i}>
-					<span style={{marginRight: "5em"}}>
+				<div key={index} className="row">
+					<div className="col-xs-2" style={{marginRight: "5em"}}>
 						{r.name}
-					</span>
-					{count || "0"}
+					</div>
+					<div className="col-xs-2">
+						{count || "0"}
+					</div>
 				</div>
 			);
 		});
@@ -260,17 +262,34 @@ var Ballot = React.createClass({
 	handleDrop: function (e) {
 	  var selection = JSON.parse(e.dataTransfer.getData('from-candidates'));
 	  var currentBallot = this.state.ballot;
-	  
+
 	  currentBallot.candidates.push(selection);
 	  this.setState({ballot: currentBallot});
 
+	  this.saveBallot();
+
 	  e.preventDefault();
+	},
+
+	saveBallot: function () {
+		var request = new XMLHttpRequest();
+		request.open('POST', api.base + '/ballots/' + this.state.ballot._id);
+		request.setRequestHeader(
+			'Authorization',
+			'Token ' + JSON.parse(localStorage.getItem('tokens'))[this.state.ballot.pollId]
+		);
+
+		var data = this.state.ballot.candidates;
+
+		request.send(JSON.stringify(data));
 	},
 
 	removeCandidate: function (candidateId) {
 		var ballot = this.state.ballot;
 		ballot.candidates = ballot.candidates.filter((c) => c._id !== candidateId);
 		this.setState({ballot: ballot});
+
+		this.saveBallot();
 	},
 
 	render: function() {
@@ -288,7 +307,7 @@ var Ballot = React.createClass({
 				<h3 className="text-center">
 					Ballot
 				</h3>
-				<ol 
+				<ol
 					onDragOver={this.handleDragOver}
 					onDrop={this.handleDrop}
 					style={{listStyleType: "none", height: "25em", border: "solid 1px grey", paddingLeft: "0"}}>
@@ -312,7 +331,7 @@ var Candidates = React.createClass({
 
 	handleDrop: function (e) {
 	  var selection = JSON.parse(e.dataTransfer.getData('from-ballot'));
-	 
+
 	  this.setState({candidates: this.state.candidates.concat(selection)});
 
 	  e.preventDefault();
@@ -330,7 +349,7 @@ var Candidates = React.createClass({
 				<h3 className="text-center">
 					Candidates
 				</h3>
-				<ul 
+				<ul
 					onDragOver={this.handleDragOver}
 					onDrop={this.handleDrop}
 					style={{listStyleType: "none", height: "25em", border: "solid 1px grey", paddingLeft: "0"}}>
@@ -366,7 +385,7 @@ var DraggableCandidate = React.createClass({
 				draggable="true"
 				onDragStart={this.handleDragStart}
 				onDragEnd={this.handleDragEnd}
-				style={{paddingTop: ".5em", paddingBottom: ".5em", borderBottom: "solid 1px lightgrey", paddingLeft: ".5em"}} 
+				style={{paddingTop: ".5em", paddingBottom: ".5em", borderBottom: "solid 1px lightgrey", paddingLeft: ".5em"}}
 				data-option={JSON.stringify(this.props.option)}>
 					{this.props.option.name}
 			</li>

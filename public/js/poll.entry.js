@@ -208,20 +208,24 @@
 		displayName: 'ResultStep',
 
 		render: function render() {
-			var results = this.props.results.map(function (r, i) {
+			var results = this.props.results.map(function (r, index) {
 				var count = "";
 				for (var i = 0; i < r.count; ++i) {
 					count += "|";
 				}
 				return React.createElement(
 					'div',
-					{ key: i },
+					{ key: index, className: 'row' },
 					React.createElement(
-						'span',
-						{ style: { marginRight: "5em" } },
+						'div',
+						{ className: 'col-xs-2', style: { marginRight: "5em" } },
 						r.name
 					),
-					count || "0"
+					React.createElement(
+						'div',
+						{ className: 'col-xs-2' },
+						count || "0"
+					)
 				);
 			});
 			return React.createElement(
@@ -359,7 +363,19 @@
 			currentBallot.candidates.push(selection);
 			this.setState({ ballot: currentBallot });
 
+			this.saveBallot();
+
 			e.preventDefault();
+		},
+
+		saveBallot: function saveBallot() {
+			var request = new XMLHttpRequest();
+			request.open('POST', api.base + '/ballots/' + this.state.ballot._id);
+			request.setRequestHeader('Authorization', 'Token ' + JSON.parse(localStorage.getItem('tokens'))[this.state.ballot.pollId]);
+
+			var data = this.state.ballot.candidates;
+
+			request.send(JSON.stringify(data));
 		},
 
 		removeCandidate: function removeCandidate(candidateId) {
@@ -368,6 +384,8 @@
 				return c._id !== candidateId;
 			});
 			this.setState({ ballot: ballot });
+
+			this.saveBallot();
 		},
 
 		render: function render() {
