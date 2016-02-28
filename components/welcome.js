@@ -50,11 +50,9 @@ var Welcome = React.createClass({
 			sessionRequest.send();
 		}
   },
-
   handleSubmit: function (poll) {
 		window.location.href = '/poll/' + poll;
   },
-
   render: function() {
     return (
       <div className="welcome">

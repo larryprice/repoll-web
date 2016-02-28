@@ -59,6 +59,7 @@
 				pollId: document.getElementById('content').getAttribute('data-poll-id')
 			};
 		},
+
 		componentDidMount: function componentDidMount() {
 			var req = new XMLHttpRequest();
 			req.open('GET', api.base + '/polls/' + this.state.pollId);
@@ -75,6 +76,7 @@
 
 			req.send();
 		},
+
 		render: function render() {
 			if (this.state.poll) {
 				if (Date.parse(this.state.poll.startDate) > new Date()) {
@@ -279,7 +281,7 @@
 				React.createElement(
 					'div',
 					{ className: 'col-sm-6' },
-					React.createElement(Candidates, { options: this.props.candidates })
+					React.createElement(Candidates, { initialCandidates: this.props.candidates })
 				)
 			);
 		}
@@ -293,6 +295,7 @@
 				ballot: null
 			};
 		},
+
 		componentDidMount: function componentDidMount() {
 			var existing = localStorage.getItem('ballots');
 
@@ -340,21 +343,41 @@
 
 			req.send();
 		},
+
+		handleDragOver: function handleDragOver(e) {
+			if (e.dataTransfer.types.some(function (t) {
+				return t === 'from-candidates';
+			})) {
+				e.preventDefault();
+			}
+		},
+
+		handleDrop: function handleDrop(e) {
+			var selection = JSON.parse(e.dataTransfer.getData('from-candidates'));
+			var currentBallot = this.state.ballot;
+
+			currentBallot.candidates.push(selection);
+			this.setState({ ballot: currentBallot });
+
+			e.preventDefault();
+		},
+
+		removeCandidate: function removeCandidate(candidateId) {
+			var ballot = this.state.ballot;
+			ballot.candidates = ballot.candidates.filter(function (c) {
+				return c._id !== candidateId;
+			});
+			this.setState({ ballot: ballot });
+		},
+
 		render: function render() {
 			var selections;
 			if (this.state.ballot) {
 				selections = this.state.ballot.candidates.map(function (o) {
-					return React.createElement(
-						'li',
-						{ style: { paddingTop: ".5em", paddingBottom: ".5em", borderBottom: "solid 1px lightgrey", paddingLeft: ".5em" }, value: JSON.stringify(o), key: o._id },
-						React.createElement(
-							'b',
-							null,
-							o.name
-						)
-					);
-				});
+					return React.createElement(DraggableCandidate, { option: o, key: o._id, transferKey: 'from-ballot', onCandidateMove: this.removeCandidate });
+				}.bind(this));
 			}
+
 			return React.createElement(
 				'div',
 				null,
@@ -365,7 +388,10 @@
 				),
 				React.createElement(
 					'ol',
-					{ style: { listStyleType: "none", height: "25em", border: "solid 1px grey", paddingLeft: "0" } },
+					{
+						onDragOver: this.handleDragOver,
+						onDrop: this.handleDrop,
+						style: { listStyleType: "none", height: "25em", border: "solid 1px grey", paddingLeft: "0" } },
 					selections
 				)
 			);
@@ -375,14 +401,31 @@
 	var Candidates = React.createClass({
 		displayName: 'Candidates',
 
+		getInitialState: function getInitialState() {
+			return { candidates: this.props.initialCandidates };
+		},
+
+		handleDragOver: function handleDragOver(e) {
+			if (e.dataTransfer.types.some(function (t) {
+				return t === 'from-ballot';
+			})) {
+				e.preventDefault();
+			}
+		},
+
+		handleDrop: function handleDrop(e) {
+			var selection = JSON.parse(e.dataTransfer.getData('from-ballot'));
+
+			this.setState({ candidates: this.state.candidates.concat(selection) });
+
+			e.preventDefault();
+		},
+
 		render: function render() {
-			var options = this.props.options.map(function (o) {
-				return React.createElement(
-					'li',
-					{ style: { paddingTop: ".5em", paddingBottom: ".5em", borderBottom: "solid 1px lightgrey", paddingLeft: ".5em" }, value: JSON.stringify(o), key: o._id },
-					o.name
-				);
-			});
+			var options = this.state.candidates.map(function (o) {
+				return React.createElement(DraggableCandidate, { option: o, key: o._id, transferKey: 'from-candidates', onCandidateMove: this.removeCandidate });
+			}.bind(this));
+
 			return React.createElement(
 				'div',
 				null,
@@ -393,9 +436,49 @@
 				),
 				React.createElement(
 					'ul',
-					{ style: { listStyleType: "none", height: "25em", border: "solid 1px grey", paddingLeft: "0" } },
+					{
+						onDragOver: this.handleDragOver,
+						onDrop: this.handleDrop,
+						style: { listStyleType: "none", height: "25em", border: "solid 1px grey", paddingLeft: "0" } },
 					options
 				)
+			);
+		},
+
+		removeCandidate: function removeCandidate(candidateId) {
+			var filteredCandidates = this.state.candidates.filter(function (c) {
+				return c._id !== candidateId;
+			});
+			this.setState({ candidates: filteredCandidates });
+		}
+	});
+
+	var DraggableCandidate = React.createClass({
+		displayName: 'DraggableCandidate',
+
+		handleDragStart: function handleDragStart(e) {
+			e.dataTransfer.setData(this.props.transferKey, e.target.getAttribute('data-option'));
+			e.dataTransfer.effectAllowed = 'move';
+		},
+
+		handleDragEnd: function handleDragEnd(e) {
+			if (e.dataTransfer.dropEffect === 'none') {
+				return;
+			}
+
+			this.props.onCandidateMove(this.props.option._id);
+		},
+
+		render: function render() {
+			return React.createElement(
+				'li',
+				{
+					draggable: 'true',
+					onDragStart: this.handleDragStart,
+					onDragEnd: this.handleDragEnd,
+					style: { paddingTop: ".5em", paddingBottom: ".5em", borderBottom: "solid 1px lightgrey", paddingLeft: ".5em" },
+					'data-option': JSON.stringify(this.props.option) },
+				this.props.option.name
 			);
 		}
 	});

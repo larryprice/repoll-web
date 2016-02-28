@@ -56,7 +56,6 @@
 		getInitialState: function getInitialState() {
 			return {};
 		},
-
 		componentWillMount: function componentWillMount() {
 			var pollsRequest = new XMLHttpRequest();
 			pollsRequest.open('GET', api.base + '/polls');
@@ -75,27 +74,29 @@
 				console.log(pollsRequest.responseText);
 			};
 
-			var sessionRequest = new XMLHttpRequest();
-			sessionRequest.open('PUT', api.base + '/sessions');
+			if (localStorage.getItem('sessionId')) {
+				pollsRequest.send();
+			} else {
+				var sessionRequest = new XMLHttpRequest();
+				sessionRequest.open('PUT', api.base + '/sessions');
 
-			sessionRequest.onload = function () {
-				if (sessionRequest.status >= 200 && sessionRequest.status < 400) {
-					var session = JSON.parse(sessionRequest.responseText);
-					localStorage.setItem('sessionId', session._id);
+				sessionRequest.onload = function () {
+					if (sessionRequest.status >= 200 && sessionRequest.status < 400) {
+						var session = JSON.parse(sessionRequest.responseText);
+						localStorage.setItem('sessionId', session._id);
 
-					pollsRequest.send();
-				} else {
-					console.log(sessionRequest.responseText);
-				}
-			};
-
-			sessionRequest.send();
+						pollsRequest.setRequestHeader('Authorization', 'Basic ' + btoa(session._id + ':'));
+						pollsRequest.send();
+					} else {
+						console.log(sessionRequest.responseText);
+					}
+				};
+				sessionRequest.send();
+			}
 		},
-
 		handleSubmit: function handleSubmit(poll) {
 			window.location.href = '/poll/' + poll;
 		},
-
 		render: function render() {
 			return React.createElement(
 				'div',
