@@ -56,7 +56,8 @@
 		getInitialState: function getInitialState() {
 			return {
 				poll: null,
-				pollId: document.getElementById('content').getAttribute('data-poll-id')
+				pollId: document.getElementById('content').getAttribute('data-poll-id'),
+				showResults: false
 			};
 		},
 
@@ -76,6 +77,9 @@
 
 			req.send();
 		},
+		showResults: function showResults() {
+			this.setState({ showResults: true });
+		},
 
 		render: function render() {
 			if (this.state.poll) {
@@ -90,7 +94,7 @@
 						),
 						React.createElement(PrematurePoll, { startDate: this.state.poll.startDate })
 					);
-				} else if (Date.parse(this.state.poll.endDate) < new Date()) {
+				} else if (this.state.showResults || Date.parse(this.state.poll.endDate) < new Date()) {
 					return React.createElement(
 						'div',
 						null,
@@ -110,7 +114,16 @@
 							{ className: 'text-center' },
 							this.state.poll.name
 						),
-						React.createElement(OpenPoll, { pollId: this.state.pollId, candidates: this.state.poll.candidates })
+						React.createElement(OpenPoll, { pollId: this.state.pollId, candidates: this.state.poll.candidates }),
+						React.createElement(
+							'div',
+							{ className: 'row' },
+							React.createElement(
+								'a',
+								{ href: 'javascript:void(0);', className: 'pull-right', onClick: this.showResults },
+								'View Results'
+							)
+						)
 					);
 				}
 			} else {
@@ -146,7 +159,7 @@
 			req.onload = function () {
 				if (req.status >= 200 && req.status < 400) {
 					var results = JSON.parse(req.responseText);
-					that.setState({ results: results, resultIndex: 0 });
+					that.setState({ results: results, resultIndex: results.length - 1 });
 				} else {
 					console.log(req.responseText);
 				}
@@ -218,12 +231,12 @@
 					{ key: index, className: 'row' },
 					React.createElement(
 						'div',
-						{ className: 'col-xs-2', style: { marginRight: "5em" } },
+						{ className: 'col-xs-6' },
 						r.name
 					),
 					React.createElement(
 						'div',
-						{ className: 'col-xs-2' },
+						{ className: 'col-xs-6' },
 						count || "0"
 					)
 				);
@@ -349,10 +362,10 @@
 		},
 
 		handleDragOver: function handleDragOver(e) {
-			if (e.dataTransfer.types.some(function (t) {
-				return t === 'from-candidates';
-			})) {
-				e.preventDefault();
+			for (var i = 0; i < e.dataTransfer.types.length; i++) {
+				if (e.dataTransfer.types[i] === 'from-candidates') {
+					e.preventDefault();
+				}
 			}
 		},
 
@@ -371,9 +384,10 @@
 		saveBallot: function saveBallot() {
 			var request = new XMLHttpRequest();
 			request.open('POST', api.base + '/ballots/' + this.state.ballot._id);
+			request.setRequestHeader('Content-Type', 'application/json');
 			request.setRequestHeader('Authorization', 'Token ' + JSON.parse(localStorage.getItem('tokens'))[this.state.ballot.pollId]);
 
-			var data = this.state.ballot.candidates;
+			var data = { candidates: this.state.ballot.candidates };
 
 			request.send(JSON.stringify(data));
 		},
@@ -424,10 +438,10 @@
 		},
 
 		handleDragOver: function handleDragOver(e) {
-			if (e.dataTransfer.types.some(function (t) {
-				return t === 'from-ballot';
-			})) {
-				e.preventDefault();
+			for (var i = 0; i < e.dataTransfer.types.length; i++) {
+				if (e.dataTransfer.types[i] === 'from-ballot') {
+					e.preventDefault();
+				}
 			}
 		},
 
