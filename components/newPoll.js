@@ -13,8 +13,8 @@ var Candidate = React.createClass({
     return (
       <li>
         {this.props.name}
-        <button 
-          type='button' 
+        <button
+          type='button'
           className='btn btn-link btn-xs'
           onClick={this.delete}>
           x
@@ -27,7 +27,9 @@ var Candidate = React.createClass({
 var NewPoll = React.createClass({
   getInitialState: function () {
     return {
-      candidates: []
+      candidates: [],
+			startDate: new Date(),
+			endDate: new Date(),
     };
   },
 
@@ -64,10 +66,10 @@ var NewPoll = React.createClass({
 
           <div className="form-group">
             <div className="input-group">
-              <input 
-                className='form-control' 
-                type='text' 
-                onChange={this.handleCandidateNameChange} 
+              <input
+                className='form-control'
+                type='text'
+                onChange={this.handleCandidateNameChange}
                 value={this.state.newCandidateName} />
               <span className='input-group-btn'>
                 <button type="button" className="btn btn-default" onClick={this.addCandidate}>Add +</button>
@@ -79,20 +81,20 @@ var NewPoll = React.createClass({
         <div className='date'>
           <div className="form-group">
             <label>When does your poll open?</label>
-            <DateTimeField 
-              onChange={this.handleStartDateChange} 
+            <DateTimeField
+              onChange={this.handleStartDateChange}
               showToday={true} />
           </div>
-           
+
           <div className="form-group">
             <label>When does your poll close?</label>
-            <DateTimeField 
+            <DateTimeField
               onChange={this.handleEndDateChange}
               showToday={true} />
           </div>
         </div>
 
-        <button type='submit' className="btn btn-default btn-block">Let's do this 👍</button>
+        <button type='submit' className="btn btn-default btn-block">Let&apos;s do this 👍</button>
       </form>
     );
   },
@@ -141,28 +143,22 @@ var NewPoll = React.createClass({
       endDate: moment(+this.state.endDate).format()
     }
 
-    var request = new XMLHttpRequest();
-    request.open('PUT', api.base + '/polls');
-    request.setRequestHeader('Content-Type', 'application/json');
-    request.setRequestHeader('Authorization', 'Basic ' + btoa(localStorage.getItem('sessionId') + ':'));
-
-    request.onload = function () {
-      if (request.status >= 200 && request.status < 400) {
-        var newPoll = JSON.parse(request.responseText);
-        ReactDOM.render(
-          <NewPollSuccess name={newPoll.name} passcode={this.state.passcode}/>,
-          document.getElementById('content')
-        );
-      } else {
-        console.log(request.responseText);
-      }
-    }.bind(this);
-
-    request.onerror = function () {
-      console.log(request.responseText);
-    }
-
-    request.send(JSON.stringify(data));
+		api.createPoll({
+      name: this.state.name,
+      passcode: this.state.passcode,
+      candidates: this.state.candidates,
+      startDate: moment(+this.state.startDate).format(),
+      endDate: moment(+this.state.endDate).format()
+    }, function(err, newPoll) {
+			if (err) {
+				console.log(err);
+				return;
+			}
+			ReactDOM.render(
+				<NewPollSuccess name={newPoll.name} passcode={this.state.passcode}/>,
+				document.getElementById('content')
+			);
+		}.bind(this));
   }
 });
 
@@ -174,12 +170,12 @@ var NewPollSuccess = React.createClass({
           <h1>You're all set!</h1>
           <p>Have your voters download the app or visit <a href='https://repoll.net'>RePoll.net</a> and enter the info below.</p>
         </div>
-        
+
         <h4>Name</h4>
         <div className="well">
           <span>{this.props.name}</span>
         </div>
-        
+
         <h4>Passcode</h4>
         <div className="well">
           <span>{this.props.passcode}</span>

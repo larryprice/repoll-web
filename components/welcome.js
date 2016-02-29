@@ -7,48 +7,14 @@ var Welcome = React.createClass({
     return {};
   },
   componentWillMount: function () {
-    var pollsRequest = new XMLHttpRequest();
-    pollsRequest.open('GET', api.base + '/polls');
+		api.getPolls(function(err, polls) {
+			if (err) {
+				console.log(err);
+				return;
+			}
 
-    pollsRequest.setRequestHeader(
-      'Authorization',
-      'Basic ' + btoa(localStorage.getItem('sessionId') + ':')
-    );
-
-    pollsRequest.onload = function () {
-      if (pollsRequest.status >= 200 && pollsRequest.status < 400) {
-        this.setState({polls: JSON.parse(pollsRequest.responseText)});
-      } else {
-        console.log(pollsRequest.responseText);
-      }
-    }.bind(this);
-
-    pollsRequest.onerror = function () {
-        console.log(pollsRequest.responseText);
-    };
-
-		if (localStorage.getItem('sessionId')) {
-			pollsRequest.send();
-		} else {
-			var sessionRequest = new XMLHttpRequest();
-			sessionRequest.open('PUT', api.base + '/sessions');
-
-			sessionRequest.onload = function () {
-				if (sessionRequest.status >= 200 && sessionRequest.status < 400) {
-					var session = JSON.parse(sessionRequest.responseText);
-					localStorage.setItem('sessionId', session._id);
-
-					pollsRequest.setRequestHeader(
-			      'Authorization',
-			      'Basic ' + btoa(session._id + ':')
-			    );
-					pollsRequest.send();
-				} else {
-					console.log(sessionRequest.responseText);
-				}
-			};
-			sessionRequest.send();
-		}
+			this.setState({polls: polls});
+		}.bind(this));
   },
   handleSubmit: function (poll) {
 		window.location.href = '/poll/' + poll;
@@ -83,28 +49,13 @@ var PollingSelector = React.createClass({
 	auth: function(e) {
 		e.preventDefault();
 		if (this.state.poll && this.refs.pass.value) {
-			var req = new XMLHttpRequest();
-			req.open('PUT', api.base + '/sessions/' + localStorage.getItem('sessionId') + '/token');
-			req.setRequestHeader(
-				'Authorization',
-				'Basic ' + btoa(this.state.poll + ':' + this.refs.pass.value)
-			);
-
-			var that = this;
-			req.onload = function () {
-				if (req.status >= 200 && req.status < 400) {
-					var o = JSON.parse(req.responseText);
-					var tokens = localStorage.getItem('tokens');
-					tokens = tokens ? JSON.parse(tokens) : {};
-					tokens[that.state.poll] = o._id;
-					localStorage.setItem('tokens', JSON.stringify(tokens));
-					that.props.onSubmit(that.state.poll);
-				} else {
-					console.log(req.responseText);
+			api.getToken(this.state.poll, this.refs.pass.value, function(err, token) {
+				if (err) {
+					console.log(err);
+					return;
 				}
-			};
-
-			req.send();
+				this.props.onSubmit(this.state.poll);
+			}.bind(this));
 		}
 		return false;
 	},

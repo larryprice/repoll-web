@@ -10,30 +10,19 @@ var PollingBooth = React.createClass({
 			showResults: false
 		}
 	},
-
 	componentDidMount: function() {
-		var req = new XMLHttpRequest();
-		req.open('GET', api.base + '/polls/' + this.state.pollId);
-		req.setRequestHeader(
-			'Authorization',
-			'Token ' + JSON.parse(localStorage.getItem('tokens'))[this.state.pollId]
-		);
-
-		var that = this;
-		req.onload = function () {
-			if (req.status >= 200 && req.status < 400) {
-				that.setState({poll: JSON.parse(req.responseText)});
-			} else {
-				console.log(req.responseText);
+		api.getPoll(this.state.pollId, function(err, poll) {
+			if (err) {
+				console.log(err);
+				return;
 			}
-		};
 
-		req.send();
+			this.setState({poll: poll});
+		}.bind(this));
 	},
 	showResults: function() {
 		this.setState({showResults: true})
 	},
-
 	render: function() {
 		if (this.state.poll) {
 			if (Date.parse(this.state.poll.startDate) > new Date()) {
@@ -84,24 +73,13 @@ var PollResults = React.createClass({
 		}
 	},
 	componentDidMount: function() {
-		var req = new XMLHttpRequest();
-		req.open('GET', api.base + '/polls/' + this.props.pollId + '/results');
-		req.setRequestHeader(
-			'Authorization',
-			'Token ' + JSON.parse(localStorage.getItem('tokens'))[this.props.pollId]
-		);
-
-		var that = this;
-		req.onload = function () {
-			if (req.status >= 200 && req.status < 400) {
-				var results = JSON.parse(req.responseText);
-				that.setState({results: results, resultIndex: results.length-1});
-			} else {
-				console.log(req.responseText);
+		api.getPollResults(this.props.pollId, function(err, results) {
+			if (err) {
+				console.log(err);
+				return;
 			}
-		};
-
-		req.send();
+			this.setState({results: results, resultIndex: results.length-1});
+		}.bind(this));
 	},
 	previous: function() {
 		if (this.state.resultIndex > 0) {
@@ -124,7 +102,7 @@ var PollResults = React.createClass({
 						<a href="javascript:void(0)" onClick={this.next} className="pull-right">Next</a>
 					</div>
 					<div className="row" style={{border: "solid 1px grey", height: "25em", padding: "1em"}}>
-						<ResultStep results={this.state.results[this.state.resultIndex]} />
+						<ResultStep results={this.state.results[this.state.resultIndex] || []} />
 					</div>
 				</div>
 			);
@@ -206,60 +184,14 @@ var Ballot = React.createClass({
 	},
 
 	componentDidMount: function() {
-		var existing = localStorage.getItem('ballots');
-
-		if (existing) {
-			var ballots = JSON.parse(existing);
-			if (ballots[this.props.pollId]) {
-				var ballotRequest = new XMLHttpRequest();
-				ballotRequest.open('GET', api.base + '/ballots/' + ballots[this.props.pollId]);
-				ballotRequest.setRequestHeader(
-					'Authorization',
-					'Token ' + JSON.parse(localStorage.getItem('tokens'))[this.props.pollId]
-				);
-
-				var that = this;
-				ballotRequest.onload = function () {
-					if (ballotRequest.status >= 200 && ballotRequest.status < 400) {
-						var ballot = JSON.parse(ballotRequest.responseText);
-						that.setState({ballot: ballot});
-					} else {
-						console.log(ballotRequest.responseText);
-					}
-				};
-
-				ballotRequest.send();
+		api.getBallot(this.props.pollId, function(err, ballot) {
+			if (err) {
+				console.log(err);
 				return;
 			}
-		}
-
-		var req = new XMLHttpRequest();
-		req.open('PUT', api.base + '/ballots');
-		req.setRequestHeader(
-			'Authorization',
-			'Token ' + JSON.parse(localStorage.getItem('tokens'))[this.props.pollId]
-		);
-
-		var that = this;
-		req.onload = function () {
-			if (req.status >= 200 && req.status < 400) {
-				var ballot = JSON.parse(req.responseText);
-
-				var stored = localStorage.getItem('ballots');
-				stored = stored ? JSON.parse(stored) : {};
-				stored[that.props.pollId] = ballot._id;
-				localStorage.setItem('ballots', JSON.stringify(stored));
-
-				that.setState({ballot: ballot});
-			} else {
-				console.log(req.responseText);
-			}
-		};
-
-		req.send();
+			this.setState({ballot: ballot});
+		}.bind(this));
 	},
-
-
 	handleDragOver: (e) => {
 		for (var i = 0; i < e.dataTransfer.types.length; i++) {
 			if (e.dataTransfer.types[i] === 'from-candidates') {
@@ -267,7 +199,6 @@ var Ballot = React.createClass({
 			}
 		}
 	},
-
 	handleDrop: function (e) {
 	  var selection = JSON.parse(e.dataTransfer.getData('from-candidates'));
 	  var currentBallot = this.state.ballot;
@@ -279,19 +210,13 @@ var Ballot = React.createClass({
 
 	  e.preventDefault();
 	},
-
 	saveBallot: function () {
-		var request = new XMLHttpRequest();
-		request.open('POST', api.base + '/ballots/' + this.state.ballot._id);
-		request.setRequestHeader('Content-Type', 'application/json');
-		request.setRequestHeader(
-			'Authorization',
-			'Token ' + JSON.parse(localStorage.getItem('tokens'))[this.state.ballot.pollId]
-		);
-
-		var data = {candidates: this.state.ballot.candidates};
-
-		request.send(JSON.stringify(data));
+		api.saveBallot(this.state.ballot, function(err, ballot) {
+			if (err) {
+				console.log(err);
+				return;
+			}
+		});
 	},
 
 	removeCandidate: function (candidateId) {
